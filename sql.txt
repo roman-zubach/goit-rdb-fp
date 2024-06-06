@@ -1,0 +1,130 @@
+1.1 CREATE DATABASE pandemic;
+1.2 CREATE TABLE infectious_cases (
+  id int NOT NULL AUTO_INCREMENT,
+  code VARCHAR(10) DEFAULT NULL,
+  entity VARCHAR(255) DEFAULT NULL,
+  year year DEFAULT NULL,
+  number_yaws int DEFAULT NULL,
+  polio_cases int DEFAULT NULL,
+  cases_guinea_worm int DEFAULT NULL,
+  number_rabies double DEFAULT NULL,
+  number_malaria double DEFAULT NULL,
+  number_hiv double DEFAULT NULL,
+  number_tuberculosis double DEFAULT NULL,
+  number_smallpox int DEFAULT NULL,
+  number_cholera_cases int DEFAULT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+(створював попередньо таблицю, для того щоб було id відразу коректно проставлено, а то в імпорті цього поля немає) 
+
+
+2.1 CREATE TABLE entity (
+        id INT AUTO_INCREMENT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        PRIMARY KEY(id)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci ENGINE = InnoDB;
+
+2.2 CREATE TABLE code (
+        id INT AUTO_INCREMENT NOT NULL,
+        name VARCHAR(10) NOT NULL,
+        PRIMARY KEY(id)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci ENGINE = InnoDB;
+
+2.3 INSERT INTO entity (name)
+SELECT DISTINCT
+        Entity
+FROM
+        infectious_cases
+WHERE
+        entity IS NOT NULL;
+
+2.4 UPDATE infectious_cases
+SET code = NULL
+WHERE code = '';
+
+2.5 INSERT INTO code (name)
+SELECT DISTINCT
+        code
+FROM
+        infectious_cases
+WHERE
+        code IS NOT NULL;
+
+2.6 ALTER TABLE infectious_cases
+        ADD COLUMN entity_id INT DEFAULT NULL AFRER id,
+        ADD COLUMN code_id INT DEFAULT NULL AFRER entity_id,
+        ADD INDEX idx_code_id (code_id),
+        ADD INDEX idx_entity_id (entity_id),
+        ADD CONSTRAINT FK_infectious_cases_code FOREIGN KEY (code_id) REFERENCES code (id) ON DELETE CASCADE,
+        ADD CONSTRAINT FK_infectious_cases_entity FOREIGN KEY (entity_id) REFERENCES entity (id) ON DELETE CASCADE;
+
+2.7 UPDATE
+        infectious_cases
+        INNER JOIN entity ON entity.name = infectious_cases.entity
+SET
+        entity_id = entity.id;
+
+2.8 UPDATE
+        infectious_cases
+        INNER JOIN code ON code.name = infectious_cases.code
+SET
+        code_id = code.id;
+
+2.9 ALTER TABLE infectious_cases DROP COLUMN code, DROP COLUMN entity;
+
+3. SELECT
+        AVG(number_rabies) AS avarega,
+        MIN(number_rabies) AS min,
+        MAX(number_rabies) AS max,
+        SUM(number_rabies) AS total
+FROM
+        infectious_cases
+WHERE
+        number_rabies IS NOT NULL
+GROUP BY
+        entity_id,
+        code_id
+ORDER BY
+        avarega DESC
+LIMIT 10;
+
+4. SELECT
+    date,
+    CURRENT_DATE AS today,
+    TIMESTAMPDIFF(YEAR, date, CURRENT_DATE) AS years_difference
+FROM (
+    SELECT
+        STR_TO_DATE(CONCAT(year, '-01-01'), '%Y-%m-%d') AS date
+    FROM
+        infectious_cases
+) AS infectious_cases_dates;
+
+або
+
+
+SELECT
+        STR_TO_DATE(CONCAT(year, '-01-01'), '%Y-%m-%d') AS date,
+        CURRENT_DATE AS today,
+        YEAR(CURRENT_DATE) - year AS years_difference
+FROM
+        infectious_cases;
+
+5.1 DELIMITER //
+CREATE FUNCTION YearDifference(input_year YEAR) RETURNS INT
+        DETERMINISTIC
+        NO SQL
+BEGIN
+    DECLARE date DATE;
+    DECLARE years_difference INT;
+    SET date = STR_TO_DATE(CONCAT(input_year, '-01-01'), '%Y-%m-%d');
+    SET years_difference = TIMESTAMPDIFF(YEAR, date, CURRENT_DATE);
+    RETURN years_difference;
+END //
+DELIMITER ;
+5.2 SELECT
+        STR_TO_DATE(CONCAT(year, '-01-01'), '%Y-%m-%d') AS date,
+        CURRENT_DATE AS today,
+        YearDifference(year) AS years_difference
+FROM
+        infectious_cases;
